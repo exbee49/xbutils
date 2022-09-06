@@ -1,6 +1,16 @@
 from typing import Union, Callable, Sequence
 from argparse import ArgumentParser
 
+_complete_bash_script = """
+_{name}_comp() {{
+    COMPREPLY=()
+    if [ ${{COMP_CWORD}} -eq 1 ] ; then
+        COMPREPLY=( $(compgen -W "$({cmd} complete)" -- "$2" ) )
+    fi
+}}
+complete -F _{name}_comp  -o bashdefault -o default {cmd}
+"""
+
 
 class Cmd:
     _all: list["Cmd"] = list()
@@ -10,6 +20,12 @@ class Cmd:
 
     #: ArgumentParser prog
     prog: str = None
+
+    #: generate complete commands if True
+    complete: bool = True
+
+    #: complete words
+    complete_words: list[str] = ['--help']
 
     #: Command name
     name: Union[None, str, Sequence[str]] = None
@@ -23,6 +39,11 @@ class Cmd:
     #: Help string (in commnd help)
     desc = ""
 
+    #: Complete for cmd
+    cmd_complete: list[str] = []
+
+    _parser: ArgumentParser = None
+
     def __init__(self) -> None:
         super().__init__()
         if isinstance(self.name, str):
@@ -35,7 +56,7 @@ class Cmd:
         if self.desc:
             params['description'] = self.desc
         parser = subparsers.add_parser(self.name[0], aliases=self.name[1:], **params)
-        parser.set_defaults(sub_cmd=self)
+        parser.set_defaults(sub_cmd_func=self.execute_cmd)
         self.add_arguments(parser)
 
     def add_arguments(self, parser: ArgumentParser):
@@ -62,16 +83,47 @@ class Cmd:
             cls._all.append(cls())
 
     @classmethod
-    def main(cls):
-        parser = ArgumentParser(prog=cls.prog)
+    def complete_init(cls, subparsers):
+        parser = subparsers.add_parser("complete")
+        parser.set_defaults(sub_cmd_func=cls.complete_cmd)
+        parser = subparsers.add_parser("complete-bash")
+        parser.set_defaults(sub_cmd_func=cls.complete_bash)
+
+    @classmethod
+    def complete_cmd(cls, _):
+        words = set(cls.complete_words)
         if cls.version:
-            parser.add_argument('--version', "-V", action='version', version=cls.version)
-        parser.set_defaults(subcmd=None)
-        subparsers = parser.add_subparsers(metavar="", help='', title="Commands")
+            words.add('--version')
+        for cmd in cls._all:
+            words.add(cmd.name[0])
+            for w in cmd.cmd_complete:
+                words.add(w)
+
+        print(' '.join(sorted(words)))
+
+    @classmethod
+    def complete_bash(cls, _):
+
+        print(_complete_bash_script.format(
+            cmd=cls._parser.prog,
+            name=cls._parser.prog.replace("-", "_").replace("/", "_")
+        ))
+
+    @classmethod
+    def main(cls):
+        cls._parser = ArgumentParser(prog=cls.prog)
+        if cls.version:
+            cls._parser.add_argument('--version', "-V", action='version', version=cls.version)
+        cls._parser.set_defaults(sub_cmd_func=None)
+        subparsers = cls._parser.add_subparsers(metavar="", help='', title="Commands")
         for i in Cmd._all:
             i.init_parser(subparsers)
-        arg = parser.parse_args()
-        if not arg.subcmd:
-            parser.print_help()
+
+        if cls.complete:
+            cls.complete_init(subparsers)
+
+        arg = cls._parser.parse_args()
+        if not arg.sub_cmd_func:
+            cls._parser.print_help()
             return
-        arg.sub_cmd.execute_cmd(arg)
+        arg.sub_cmd_func(arg)
