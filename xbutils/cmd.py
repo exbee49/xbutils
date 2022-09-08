@@ -115,6 +115,9 @@ class Cmd:
         if cls.version:
             cls._parser.add_argument('--version', "-V", action='version', version=cls.version)
         cls._parser.set_defaults(sub_cmd_func=None)
+
+        cls.main_parser(cls._parser)
+
         subparsers = cls._parser.add_subparsers(metavar="", help='', title="Commands")
         for i in Cmd._all:
             i.init_parser(subparsers)
@@ -123,7 +126,18 @@ class Cmd:
             cls.complete_init(subparsers)
 
         arg = cls._parser.parse_args()
+
+        cls.main_args(arg)
+
         if not arg.sub_cmd_func:
             cls._parser.print_help()
             return
         arg.sub_cmd_func(arg)
+
+    @classmethod
+    def main_parser(cls, parser: ArgumentParser):
+        pass
+
+    @classmethod
+    def main_args(cls, args):
+        pass
