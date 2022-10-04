@@ -27,6 +27,9 @@ class Cmd:
     #: complete words
     complete_words: list[str] = ['--help']
 
+    #: default module name for function
+    default_function_module: str = ""
+
     #: Command name
     name: Union[None, str, Sequence[str]] = None
 
@@ -71,7 +74,9 @@ class Cmd:
     def execute_cmd(self, arg):
         if isinstance(self.function, str):
             m, f = self.function.rsplit('.', 1)
-            func = getattr(__import__('linux_admin_utils.' + m, globals(), locals(), [f]), f)
+            if m[:1] == ".":
+                m = self.default_function_module + m
+            func = getattr(__import__(m, globals(), locals(), [f]), f)
         else:
             func = self.function
 
