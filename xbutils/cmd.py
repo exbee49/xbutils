@@ -1,4 +1,4 @@
-from typing import Union, Callable, Sequence
+from typing import Union, Callable, Sequence, Optional
 from argparse import ArgumentParser
 
 _complete_bash_script = """
@@ -39,7 +39,7 @@ class Cmd:
     #: Help string (in command list) hidden if None
     help = ""
 
-    #: Help string (in commnd help)
+    #: Help string (in command help)
     desc = ""
 
     #: Complete for cmd
@@ -47,10 +47,22 @@ class Cmd:
 
     _parser: ArgumentParser = None
 
-    def __init__(self) -> None:
+    def __init__(self, name: Union[None, str, Sequence[str]] = None,
+                 function: Union[str, Callable, None] = None, help: Optional[str] = None,
+                 desc: Optional[str] = None) -> None:
         super().__init__()
+        if name is not None:
+            self.name = name
+        if function is not None:
+            self.function = function
+        if help is not None:
+            self.help = None if help == "HIDDEN" else help
+        if desc is not None:
+            self.desc = desc
+
         if isinstance(self.name, str):
             self.name = [self.name]
+        self._all.append(self)
 
     def init_parser(self, subparsers):
         params = dict()
@@ -84,8 +96,10 @@ class Cmd:
 
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
+        if callable(cls.function):
+            cls.function = staticmethod(cls.function)
         if cls.name is not None:
-            cls._all.append(cls())
+            cls()
 
     @classmethod
     def complete_init(cls, subparsers):
@@ -137,7 +151,9 @@ class Cmd:
         if not arg.sub_cmd_func:
             cls._parser.print_help()
             return
-        arg.sub_cmd_func(arg)
+        func = arg.sub_cmd_func
+        del arg.sub_cmd_func
+        func(arg)
 
     @classmethod
     def main_parser(cls, parser: ArgumentParser):
