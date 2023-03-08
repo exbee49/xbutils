@@ -12,6 +12,16 @@ complete -F _{name}_comp  -o bashdefault -o default {cmd}
 """
 
 
+class Param:
+
+    def __init__(self, *__args, **__kwarg) -> None:
+        self.args = __args
+        self.kwarg = __kwarg
+
+    def add_arguments(self, parser: ArgumentParser):
+        parser.add_argument(*self.args, **self.kwarg)
+
+
 class Cmd:
     _all: list["Cmd"] = list()
 
@@ -37,19 +47,22 @@ class Cmd:
     function: Union[str, Callable] = None
 
     #: Help string (in command list) hidden if None
-    help = ""
+    help: Optional[str] = ""
 
     #: Help string (in command help)
-    desc = ""
+    desc: str = ""
 
     #: Complete for cmd
     cmd_complete: list[str] = []
+
+    #: parameters
+    params: Sequence[Param] = ()
 
     _parser: ArgumentParser = None
 
     def __init__(self, name: Union[None, str, Sequence[str]] = None,
                  function: Union[str, Callable, None] = None, help: Optional[str] = None,
-                 desc: Optional[str] = None) -> None:
+                 desc: Optional[str] = None, params: Union[Param, Sequence[Param], None] = None) -> None:
         super().__init__()
         if name is not None:
             self.name = name
@@ -62,7 +75,21 @@ class Cmd:
 
         if isinstance(self.name, str):
             self.name = [self.name]
+
+        if params is not None:
+            if isinstance(params, Param):
+                self.params = (params,)
+            else:
+                self.params = params
+
         self._all.append(self)
+
+    def __call__(self, func: Callable) -> Callable:
+        """
+        As decorator
+        """
+        self.function = func
+        return func
 
     def init_parser(self, subparsers):
         params = dict()
@@ -82,6 +109,8 @@ class Cmd:
 
             parser.add_argument('--value', help="Value")
         """
+        for p in self.params:
+            p.add_arguments(parser)
 
     def execute_cmd(self, arg):
         if isinstance(self.function, str):
