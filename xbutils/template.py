@@ -1,10 +1,9 @@
 import re
+from pathlib import Path
+from typing import Optional, Any, Callable, Union
 
-from typing import Optional, Any, Callable
 
 # TODO: code in template
-# TODO: write template to file
-# TODO: template from file or dir
 
 class TemplateError(Exception):
     """Base Exception"""
@@ -27,17 +26,44 @@ class TextFunc:
 
 
 class Template:
+    """
+    Text template.
+    """
     _mgr: Optional['TmplMgr'] = None
     _text: str
 
     regexp = re.compile('(<<<(.*?)>>>)', re.A)
 
     def __init__(self, text: str, mgr: Optional["TmplMgr"] = None) -> None:
+        """
+
+        :param text: template text
+        :param mgr:  optional Manager
+        """
         if mgr is not None:
             self._mgr = mgr
         self._text = text
 
+    def write(self, __dest: Union[Path, str], __dict: Optional[dict[str, Any]] = None, **__kwarg):
+        """
+        Write a template to file
+
+        :param __dest: destination (can be a directory)
+        :param __dict: values as dict
+        :param __kwarg: values as arguments
+        """
+
+        Path(__dest).write_text(self.format(__dict, **__kwarg))
+
     def format(self, __dict: Optional[dict[str, Any]] = None, **__kwarg):
+        """
+        Instantiates a template
+
+        :param __dict: values as dict
+        :param __kwarg: values as arguments
+        :return: text
+        """
+
         args = self._mgr.get_values().copy() if self._mgr else dict()
         if __dict:
             args.update(__dict)
@@ -87,39 +113,144 @@ class Template:
 
 
 class TmplMgr:
+    """ Template Manager
+
+    Handles multiple templates
+    """
     _tmpl_class = Template
 
-    _text: dict[str, str] = None
+    _texts: dict[str, str] = None
+    _files: dict[str, Path] = None
+    _dirs: list[Path] = None
     _values: dict[str, Any] = None
 
     def __init__(self) -> None:
         self._cache = dict()
-        self._text = dict()
+        self._texts = dict()
+        self._files = dict()
+        self._dirs = list()
         self._values = dict()
 
     def add_text(self, name, text):
-        self._text[name] = text
+        """
+        Add template from text
+
+        :param name: template name
+        :param text: template text
+        """
+        self._texts[name] = text
+
+    def add_file(self, name: str, path: Union[str, Path]):
+        """
+        Add template from file
+
+        the template will only be read when necessary
+
+        :param name: template name
+        :param path: template file name
+        """
+        path = Path(path).expanduser().resolve()
+        self._files[name] = path
+
+    def add_dir(self, path: Union[str, Path]):
+        """
+        Look for templates in a directory
+
+        template name is the file name
+
+        :param path: directory path
+        """
+        path = Path(path).expanduser().resolve()
+        self._dirs.append(path)
 
     def create_template(self, text: str) -> Template:
+        """
+        create a template
+
+        :param text: text template
+        :return: template
+        """
         return self._tmpl_class(text, mgr=self)
 
     def get_template_text(self, name: str) -> str:
-        if name in self._text:
-            return self._text[name]
+        """
+        find template text
+
+        :param name: template name
+        :return: Template text
+        :raise TemplateNotFound: if not found
+
+        """
+        if name in self._texts:
+            return self._texts[name]
+        if name in self._files:
+            return self._files[name].read_text()
+        for d in self._dirs:
+            path = d / name
+            if path.is_file():
+                return path.read_text()
         raise TemplateNotFound(f'Template Not found: {name}')
 
     def get_template(self, name: str) -> Template:
+        """
+        get a template from its name
+
+        :param name: template name
+        :return: template
+        :raise TemplateNotFound: if not found
+        """
+        if name in self._cache:
+            return self._cache[name]
+
         text = self.get_template_text(name)
         reply = self.create_template(text)
+        self._cache[name] = text
         return reply
 
     def get_values(self) -> dict[str, Any]:
+        """
+        Get Manager values
+
+        :return: value
+        """
         return self._values
 
     def set_value(self, __dict: Optional[dict[str, Any]] = None, **__kwarg) -> None:
+        """
+        set Manager values
+
+        :param __dict: values as dict
+        :param __kwarg: values as arguments
+        """
         if __dict:
             self._values.update(__dict)
         self._values.update(__kwarg)
 
     def format(self, __tmpl: str, __dict: Optional[dict[str, Any]] = None, **__kwarg) -> str:
+        """
+        Instantiates a template
+
+        :param __tmpl: template name
+        :param __dict: values as dict
+        :param __kwarg: values as arguments
+        :return: text
+        :raise TemplateNotFound: if not found
+        """
         return self.get_template(__tmpl).format(__dict, **__kwarg)
+
+    def write(self, __tmpl: str, __dest: Union[str, Path], __dict: Optional[dict[str, Any]] = None, **__kwarg) -> None:
+        """
+        Write a template to file
+
+        :param __tmpl: template name
+        :param __dest: destination (can be a directory)
+        :param __dict: values as dict
+        :param __kwarg: values as arguments
+        :raise TemplateNotFound: if not found
+
+        """
+
+        dest = Path(__dest)
+        if dest.is_dir():
+            dest /= __tmpl
+        self.get_template(__tmpl).write(dest, __dict, **__kwarg)

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='xbutils',
-    version='0.4.0',
+    version='0.5.0',
     packages=['xbutils'],
     url='https://github.com/exbee49/xbutils',
     license='WTFPL',
