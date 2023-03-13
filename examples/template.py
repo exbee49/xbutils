@@ -1,15 +1,21 @@
-from xbutils.template import TmplMgr
+from xbutils.template import TmplMgr, TextFunc
+
+
+def f1():
+    return 'FROM F1 FUNCTION'
+
 
 mgr = TmplMgr()
 
-
-mgr.add_text("tmpl1","""
+mgr.add_text("tmpl1", """
 template 1
-><<<titi>>><
-sssss
-<<<toto>>>
-
+Value:<<<val>>>
+TestFunc:<<<ff>>>
+Eval:<<<!val+2>>>
+Default:<<<notdef>>>
+From mgr:<<<mgr_value>>>
 """)
 
+mgr.set_value(val=99, mgr_value="FROM MGR")
 
-print(mgr.get_template("tmpl1").process())
+print(mgr.format("tmpl1", __default__="???", ff=TextFunc(f1), val=42))
