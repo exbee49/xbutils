@@ -18,6 +18,18 @@ class TemplateEvalError(TemplateError):
 
 
 class TextFunc:
+    """
+    Callable Value for :py:obj:`Template`
+
+    Example::
+
+        def func():
+            return "test"
+
+        Template("From Func:<<<value>>>").format(value=TextFunc(func))
+
+    """
+
     def __init__(self, func: Callable):
         self._func = func
 
@@ -28,6 +40,13 @@ class TextFunc:
 class Template:
     """
     Text template.
+
+    Example::
+
+        Template('''
+            Simple Value: <<<val1>>>
+            Evaluated Value: <<<!val2+2>>>
+        ''').format(val1="test",val2=40)
     """
     _mgr: Optional['TmplMgr'] = None
     _text: str
@@ -71,6 +90,12 @@ class Template:
         return self.parse(args)
 
     def parse(self, args: dict[str, Any]) -> str:
+        """
+        Parse template
+
+        :param args: values
+        :return: instantiated template
+        """
 
         start = 0
         result = list()
@@ -86,7 +111,14 @@ class Template:
 
         return ''.join(result)
 
-    def parse_field(self, field: str, args: dict[str, Any]):
+    def parse_field(self, field: str, args: dict[str, Any]) -> str:
+        """
+        parse a field (<<< >>>)
+
+        :param field: field name
+        :param args: values
+        :return: field value
+        """
         if not field:
             return '<<<'
         if field[:1] == "!":
@@ -95,6 +127,13 @@ class Template:
 
     # noinspection PyMethodMayBeStatic
     def get_value(self, field: str, args: dict[str, Any]):
+        """
+        :return a value
+
+        :param field: value name
+        :param args: values
+        :return: value as str
+        """
         if field in args:
             return str(args[field])
         if '__default__' in args:
@@ -103,7 +142,14 @@ class Template:
         return f'<<<?{field}>>>'
 
     # noinspection PyMethodMayBeStatic
-    def eval_field(self, field: str, args: dict[str, Any]):
+    def eval_field(self, field: str, args: dict[str, Any]) -> str:
+        """
+        Evaluate a field (!field)
+
+        :param field: field without !
+        :param args: values
+        :return: evaluated field
+        """
         edict = args.copy()
         edict.update(get_value=self.get_value)
         try:

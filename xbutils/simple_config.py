@@ -1,5 +1,33 @@
 """
 cfg module
+
+Example::
+
+    from xbutils.simple_config import SimpleConfig
+    from pathlib import Path
+
+
+    class Config(SimpleConfig):
+        bool_value: bool = True
+
+        path_value: Path = Path("titi.py")
+        path_value2: Path = Path("titi.py")
+
+        int_value: int = 22
+
+        float_value: float = 1.0
+
+        str_value: str = "NoValue"
+
+
+    cfg = Config()
+
+    cfg.read_config("simple_config.cfg", must_exist=True)
+
+    print(cfg.bool_value)
+    print(cfg.path_value)
+    print(cfg.int_value)
+
 """
 from pathlib import Path
 from typing import Union
@@ -42,6 +70,13 @@ class SimpleConfig:
         self._init()
 
     def read_config(self, cfg_file: Union[Path, str], must_exist=False) -> bool:
+        """
+        read config file
+
+        :param cfg_file: config file
+        :param must_exist: if True, call _error in file doesn't exist
+        :return: False on error
+        """
         self._before_read()
         cfg_file = Path(cfg_file).expanduser().resolve()
         if not cfg_file.exists():

@@ -1,8 +1,8 @@
 from argparse import ArgumentParser
-
 from xbutils.cmd import Cmd, Param
 
 Cmd.version = 'cmd example v1.0.0'
+
 
 # ==============================
 # cmd1 : as class with function
@@ -56,6 +56,7 @@ Cmd(name='cmd3', function=cmd3, params=[Param('--param1', '-1'), Param("--param2
 @Cmd(name="cmd4")
 def cmd4():
     print("Run cmd4")
+
 
 if __name__ == '__main__':
     Cmd.main()
