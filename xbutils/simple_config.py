@@ -45,8 +45,12 @@ class SimpleConfig:
             path_value: Path = Path("/usr")
             float_value: float = 1.
 
+    ~ in Path will be expanded
+
 
     """
+    _config_globals: dict
+    _valid_attrs: dict
 
     @staticmethod
     def _error(text):
@@ -65,8 +69,25 @@ class SimpleConfig:
         """ hook called after read"""
         pass
 
+    def _update_globals(self, d: dict):
+        """ modify globals (before config)"""
+        pass
+
     def __init__(self) -> None:
         super().__init__()
+        self._config_globals = dict(
+            Path=Path,
+        )
+        for i in dir(self):
+            func = getattr(self, i)
+            if hasattr(func, '_gdf'):
+                self._config_globals[func._gdf] = func
+
+        self._valid_attrs = dict(
+            (k, v) for k, v in self.__annotations__.items()
+            if k[:1] != '_' and v in (str, int, bool, float, Path)
+        )
+
         self._init()
 
     def read_config(self, cfg_file: Union[Path, str], must_exist=False) -> bool:
@@ -76,6 +97,15 @@ class SimpleConfig:
         :param cfg_file: config file
         :param must_exist: if True, call _error in file doesn't exist
         :return: False on error
+
+
+        globals::
+
+            Path=Path
+            config_file: config file path
+            config_directory: config file directory
+
+
         """
         self._before_read()
         cfg_file = Path(cfg_file).expanduser().resolve()
@@ -86,27 +116,29 @@ class SimpleConfig:
             return False
         ok = True
         local_dict = dict()
+        global_dict = self._config_globals.copy()
+        global_dict.update(
+            config_file=cfg_file.resolve(),
+            config_directory=cfg_file.resolve().parent,
+        )
+        self._update_globals(global_dict)
+
         try:
-            exec(cfg_file.read_text(encoding="utf8"), dict(Path=Path, config_directory=cfg_file.resolve().parent),
+            exec(cfg_file.read_text(encoding="utf8"), global_dict,
                  local_dict)
         except Exception as v:
             self._error(f"Reading Config: {v}")
             ok = False
 
-        valid_attrs = dict(
-            (k, v) for k, v in self.__annotations__.items()
-            if k[:1] != '_' and v in (str, int, bool, float, Path)
-        )
-
         for k, v in local_dict.items():
             if k[:1] == "_":
                 continue
-            if k not in valid_attrs:
+            if k not in self._valid_attrs:
                 print(f"*WRN* Unknown config value {k}")
                 ok = False
                 continue
             # noinspection PyTypeHints
-            if valid_attrs[k] == Path:
+            if self._valid_attrs[k] == Path:
                 if isinstance(v, str):
                     v = Path(v)
                     if '~' in str(v):
@@ -115,17 +147,40 @@ class SimpleConfig:
                     self._error(f"Bad type for config value {k} must be str or Path")
                     ok = False
                     continue
-            elif valid_attrs[k] == float:
+            elif self._valid_attrs[k] == float:
                 if isinstance(v, int):
                     v = float(v)
                 elif not isinstance(v, float):
                     self._error(f"Bad type for config value {k} must be a float")
                     ok = False
                     continue
-            elif not isinstance(v, valid_attrs[k]):
-                self._error(f"*WRN* Bad type for config value {k} must be {valid_attrs[k]}")
+            elif not isinstance(v, self._valid_attrs[k]):
+                self._error(f"*WRN* Bad type for config value {k} must be {self._valid_attrs[k]}")
                 ok = False
                 continue
             setattr(self, k, v)
         self._after_read()
         return ok
+
+
+def global_def(name: str):
+    """Decorator to add a method as global function in config
+
+    :param name: function name
+
+
+    example::
+
+        class  MyConfig(SimpleConfig):
+
+            @global_def('my_global_func')
+            def _a_func(self,p:int):
+                print(p)
+
+    """
+
+    def f(func):
+        func._gdf = name
+        return func
+
+    return f

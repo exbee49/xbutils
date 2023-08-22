@@ -1,4 +1,4 @@
-from xbutils.simple_config import SimpleConfig
+from xbutils.simple_config import SimpleConfig, global_def
 from pathlib import Path
 
 
@@ -13,6 +13,10 @@ class Config(SimpleConfig):
     float_value: float = 1.0
 
     str_value: str = "NoValue"
+
+    @global_def("my_global")
+    def _my_global(self, v):
+        print("my_global called with", v)
 
 
 cfg = Config()
