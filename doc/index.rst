@@ -12,6 +12,8 @@ xbutils
    cmd
    simple_config
    template
+   log
+   textupdater
 .. endtoctree
 
 Indices and tables
