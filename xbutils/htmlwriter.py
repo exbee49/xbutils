@@ -1,4 +1,5 @@
 import json
+from typing import Iterable
 
 
 def to_html(txt: str) -> str:
@@ -69,18 +70,55 @@ class HtmlWriter:
             self.write(f'</{self._tag_stack.pop(-1)}>')
         return self
 
+    # ================= state =================================
+    class State:
+
+        def __init__(self, writer: "HtmlWriter"):
+            super().__init__()
+            self._state = writer.state_get()
+            self._writer = writer
+
+        def set_state(self):
+            self._writer.state_set(self._state)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.set_state()
+            return False
+
+    def state(self) -> "HtmlWriter.State":
+        """
+        create a context that close every entity opened
+
+        example::
+
+            h = HtmlWriter()
+            with h.state():
+                ...
+
+        """
+        return self.State(self)
+
+    def state_get(self) -> int:
+        """ save entities stack state """
+        return len(self._tag_stack)
+
+    def state_set(self, n: int):
+        """ set entities stack state """
+        if self.state_get() > n:
+            self.end(self.state_get() - n)
+
     def state_push(self) -> "HtmlWriter":
         """ save entities stack state """
-        self._state_stack.append(len(self._tag_stack))
+        self._state_stack.append(self.state_get())
         return self
 
     def state_pop(self) -> "HtmlWriter":
         """ close entities opened since last push"""
         if self._state_stack:
-            n = self._state_stack.pop(-1)
-            while len(self._tag_stack) > n:
-                self.end()
-
+            self.state_set(self._state_stack.pop(-1))
         return self
 
     def ul(self, **__kwarg) -> "HtmlWriter":
@@ -107,6 +145,21 @@ class HtmlWriter:
 
     def div_link(self, url, *__text, **__kwargs) -> "HtmlWriter":
         return self.div(**__kwargs).a_text(*__text, href=url).end()
+
+    def table(self, **__kwarg) -> "HtmlWriter":
+        return self.stag("table", **__kwarg)
+
+    def tbody(self, **__kwarg) -> "HtmlWriter":
+        return self.stag("tbody", **__kwarg)
+
+    def tr(self, **__kwarg) -> "HtmlWriter":
+        return self.stag("tr", **__kwarg)
+
+    def td(self, **__kwarg) -> "HtmlWriter":
+        return self.stag("td", **__kwarg)
+
+    def td_text(self, *__text, **__kwargs) -> "HtmlWriter":
+        return self.td(**__kwargs).text(*__text).end()
 
     def form(self, **__kwarg) -> "HtmlWriter":
         return self.stag("form", **__kwarg)
@@ -238,10 +291,35 @@ class HtmlWriter:
         self.state_pop()
         return False
 
+    # simple
+    def simple_div_list(self, items: Iterable[str], **__kwargs) -> "HtmlWriter":
+        """Write a div with div form items"""
+        self.div(**__kwargs)
+        for i in items:
+            self.div_text(i).nl()
+        return self.end()
+
+    def simple_ul(self, items: Iterable[str], **__kwargs) -> "HtmlWriter":
+        """ Write an ul with text from items"""
+        self.ul(**__kwargs)
+        for i in items:
+            self.li_text(i).nl()
+        return self.end()
+
+    def simple_table(self, data, **__kwargs) -> "HtmlWriter":
+        with self:
+            self.table(**__kwargs).tbody()
+            for line in data:
+                self.tr()
+                for row in line:
+                    self.td_text(row)
+                self.end().nl()
+        return self
+
 
 def _main_test():
     w = HtmlWriter()
-    w.html(title="titleœ")
+    w.html(title="title")
     print(w.get_text())
 
 
