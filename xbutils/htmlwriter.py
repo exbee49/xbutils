@@ -248,7 +248,7 @@ class HtmlWriter:
         self._buffer.append('\n')
         return self
 
-    def html(self, title: str = "", css: str = '', js: str = "") -> "HtmlWriter":
+    def simple_html(self, title: str = "", css: str = '', js: str = "", extra: str = "") -> "HtmlWriter":
         self.clear()
         self.write('<!DOCTYPE html>\n<html>\n<head>\n'
                    '<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />\n'
@@ -257,6 +257,8 @@ class HtmlWriter:
             self.write(f'<link rel="stylesheet" href="{css}" />\n')
         if js:
             self.write(f'<script src="{js}"></script>\n')
+        if extra:
+            self.write(extra)
         self.write("</head><body>\n")
         self._tag_stack = ["html", 'body']
         return self
