@@ -81,8 +81,13 @@ class TagFinder:
         :param end: end comment  ("\*/" for example)
         """
         super().__init__()
-        self._find = (r'^\s*(' + self.escape(re.escape(start) + r'\s+') + '{tag}'
+
+        def re_escape(_s: str):
+            return re.escape(self.escape(_s))
+
+        self._find = (r'^\s*(' + re_escape(start) + r'\s+(' + '|'.join(map(re_escape, self.pos_tag)) + '){tag}'
                       + self.escape((r'\s+' if end else '') + re.escape(end) + r'\s*$)'))
+
         e_start = self.escape(start)
         e_end = ' ' + self.escape(end) if end else ""
 
@@ -98,22 +103,21 @@ class TagFinder:
         :param tag: field name
         :return: Reply or None
         """
-        e_tag = re.escape(tag)
+        # e_tag = re.escape(tag)
+        matches = list((self.pos_tag.index(m.group(2)), m.start(1), m.end()) for m in
+                       re.finditer(self._find.format(tag=re.escape(tag)), text, re.MULTILINE))
+        if not matches:
+            return None
 
-        def _find(pos: int = 0):
-            req = self._find.format(tag=self.pos_tag[pos] + e_tag)
-            m = re.search(req, text, re.MULTILINE)
-            return (None, None) if m is None else m.span(1)
-
-        a, b = _find(0)
-        if a is None:
-            a, _ = _find(1)
-            if a is None:
-                return None
-            _, b = _find(2)
-            if b is None:
-                return None
-        return self.Reply((self, a, b, tag))
+        prev = matches[0]
+        for cur in matches[1:]:
+            if prev[0] == 1 and cur[0] == 2:
+                return self.Reply((self, prev[1], cur[2], tag))
+            prev = cur
+        for cur in matches:
+            if cur[0] == 0:
+                return self.Reply((self, cur[1], cur[2], tag))
+        return None
 
     def update(self, text, value, rep):
         a, b, tag = rep
@@ -289,6 +293,8 @@ def _test_update():
     u.update('TAG', 'ls -al')
     print(u.text())
     u.update('TAG', 'll')
+    print(u.text())
+    u.update('TAG')
     print(u.text())
 
 
