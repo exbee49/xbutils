@@ -77,8 +77,8 @@ class TagFinder:
     def __init__(self, start: str, end: str = ""):
         """
 
-        :param start: start comment  ("/\*" for example)
-        :param end: end comment  ("\*/" for example)
+        :param start: start comment  ("<!--" for example)
+        :param end: end comment  ("-->" for example)
         """
         super().__init__()
 
@@ -86,7 +86,7 @@ class TagFinder:
             return re.escape(self.escape(_s))
 
         self._find = (r'^\s*(' + re_escape(start) + r'\s+(' + '|'.join(map(re_escape, self.pos_tag)) + '){tag}'
-                      + self.escape((r'\s+' if end else '') + re.escape(end) + r'\s*$)'))
+                      + self.escape((r'\s+' if end else '') + re.escape(end) + r'\s*?)$'))
 
         e_start = self.escape(start)
         e_end = ' ' + self.escape(end) if end else ""
@@ -121,6 +121,7 @@ class TagFinder:
 
     def update(self, text, value, rep):
         a, b, tag = rep
+        print("REP", (text[:a], text[a:b], text[b:]))
         return text[:a] + self.build(tag=tag, text=value) + text[b:]
 
     def build(self, tag: str, text: str) -> str:
@@ -148,7 +149,7 @@ class TextUpdater:
 
     Replace special comments with text.
 
-    accept python/sh (#) , c (/\* \*/,//) and html (<!-- -->) comments
+    accept python/sh (#) , c (/star -  star/,//) and html (<!-- -->) comments
     """
 
     _path: Optional[Path] = None
@@ -283,19 +284,19 @@ def _test_update():
     print(u.text() == text)
     print(u.update('TAG3'))
 
-    text = '''
-        #Text start
-   
+    text = '''#Text start   
     '''
 
     u = BashUpdater(text=text)
 
     u.update('TAG', 'ls -al')
-    print(u.text())
+    print(repr(u.text()))
     u.update('TAG', 'll')
-    print(u.text())
+    print(repr(u.text()))
     u.update('TAG')
-    print(u.text())
+    print(repr(u.text()))
+    u.update('TAG', 'rrr')
+    print(repr(u.text()))
 
 
 if __name__ == '__main__':

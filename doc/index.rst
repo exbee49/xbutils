@@ -14,6 +14,7 @@ xbutils
    template
    log
    textupdater
+   htmlwriter
 .. endtoctree
 
 Indices and tables
